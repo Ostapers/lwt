@@ -281,9 +281,10 @@ let lwt_log mapper fn args attrs loc =
     else if List.mem level ["Fatal"; "Error"; "Warning"; "Notice"; "Info"; "Debug"] then
       let args = List.map (fun (l,e) -> l, mapper.expr mapper e) args in
       let new_exp =
-        let args = (Label.labelled "location", make_loc loc) ::
-                   (Label.labelled "section",  [%expr __pa_log_section]) ::
-                   List.remove_assoc (Label.labelled "section") args in
+        let args = (Papp_labelled "location", make_loc loc) ::
+                   (Papp_labelled "section",  [%expr __pa_log_section]) ::
+                     List.remove_assoc (Papp_labelled "section") args in
+        (* let args = List.map (fun (a,b) -> (app_flag_of_string a, b)) args in *)
         [%expr
           if [%e Exp.construct (def_loc (Ldot (Lident "Lwt_log", level))) None] >=
                     Lwt_log.Section.level __pa_log_section then
@@ -292,12 +293,16 @@ let lwt_log mapper fn args attrs loc =
             [%e if ign then [%expr ()] else [%expr Lwt.return_unit]]]
       in
       try
-        let section = List.assoc (Label.labelled "section") args in
+        let section = List.assoc (Papp_labelled "section") args in
         [%expr let __pa_log_section = [%e section] in [%e new_exp]]
       with Not_found ->
         [%expr let __pa_log_section = Lwt_log.Section.main in [%e new_exp]]
-    else default_mapper.expr mapper (Exp.apply ~attrs fn args)
-  | _ -> default_mapper.expr mapper (Exp.apply ~attrs fn args)
+    else
+      (* let args = List.map (fun (a,b) -> (app_flag_of_string a, b)) args in *)
+      default_mapper.expr mapper (Exp.apply ~attrs fn args)
+  | _ ->
+     (* let args = List.map (fun (a,b) -> (app_flag_of_string a, b)) args in *)
+     default_mapper.expr mapper (Exp.apply ~attrs fn args)
 
 let lwt_mapper args =
   args |> List.iter (fun arg ->
